@@ -1,0 +1,80 @@
+
+ifeq ($(platform),)
+platform = unix
+endif
+
+ifeq ($(platform), unix)
+CC = gcc
+AR=ar rc
+LPREFIX := unix
+else ifeq ($(platform), wiiu)
+CC = $(DEVKITPPC)/bin/powerpc-eabi-gcc$(EXE_EXT)
+CXX = $(DEVKITPPC)/bin/powerpc-eabi-g++$(EXE_EXT)
+AR = $(DEVKITPPC)/bin/powerpc-eabi-ar$(EXE_EXT) rcs
+LPREFIX := wiiu
+COMMONFLAGS += -DWIIU -mwup -mcpu=750 -meabi -mhard-float -D__POWERPC__ -D__ppc__ 
+COMMONFLAGS += -U__INT32_TYPE__ -U __UINT32_TYPE__ -D__INT32_TYPE__=int -DMSB_FIRST -DWORDS_BIGENDIAN=1
+COMMONFLAGS += -I../.. -I../../wiiu-deps -I/home/not6/wiiU/DEVKIT/DIMOK/portlibs/ppc/include 
+CFLAGS += -I./external/jpeg-9b -I./external/libpng-1.6.32 $(COMMONFLAGS) -O2  -Wall -D__LIBRETRO__
+CXXFLAGS += $(COMMONFLAGS) -g -O2  -fno-merge-constants
+ENDIANNESS_DEFINES += -DMSB_FIRST
+else ifeq ($(platform), wincross64)
+CC = x86_64-w64-mingw32-gcc
+AR = x86_64-w64-mingw32-ar rc
+LPREFIX := win
+else ifeq ($(platform), wincross32)
+CFLAGS += -I./external/jpeg-9b -I./external/libpng-1.6.32
+AR = i686-w64-mingw32-ar rc
+CC =  i686-w64-mingw32-gcc-win32
+CXX =  i686-w64-mingw32-g++-win32
+LPREFIX := win
+endif
+
+RANLIB=ranlib
+
+CFLAGS += -O3  -I../../../include -fPIC -DLOAD_JPG -DLOAD_PNG -DLOAD_BMP -DLOAD_GIF -DLOAD_LBM \
+	-DLOAD_PCX -DLOAD_PNM -DLOAD_TGA -DLOAD_XCF -DLOAD_XPM \
+	-DLOAD_XV
+
+LIBS = -fPIC -lz
+
+SOURCES = \
+	IMG.c			\
+	IMG_bmp.c		\
+	IMG_gif.c		\
+	IMG_jpg.c		\
+	IMG_lbm.c		\
+	IMG_pcx.c		\
+	IMG_png.c		\
+	IMG_pnm.c		\
+	IMG_svg.c		\
+	IMG_tga.c		\
+	IMG_tif.c		\
+	IMG_xcf.c		\
+	IMG_xpm.c		\
+	IMG_xv.c		\
+	IMG_webp.c		\
+	$(IMAGEIO_SOURCE)	\
+	miniz.h			\
+	nanosvg.h		\
+	nanosvgrast.h
+#SRCS := $(notdir $(filter-out %/showimage.c, $(wildcard ./*.c)))
+OBJS := $(SOURCES:%.c=%.o)
+
+STATIC_LIB=SDL2_image_$(LPREFIX).a
+
+
+all: $(STATIC_LIB)
+
+$(STATIC_LIB): $(OBJS)
+	echo $(OBJS)
+	$(AR) $@ $^
+	$(RANLIB) $@
+
+
+uninstall:
+	rm -f $(lib_dir)/$(STATIC_LIB)
+
+clean:
+	rm -f *.o *.a 
+

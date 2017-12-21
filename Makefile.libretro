@@ -1,0 +1,183 @@
+
+DEBUG = 0
+
+ifeq ($(platform),)
+platform = unix
+ifeq ($(shell uname -a),)
+   platform = win
+else ifneq ($(findstring Darwin,$(shell uname -a)),)
+   platform = osx
+else ifneq ($(findstring MINGW,$(shell uname -a)),)
+   platform = win
+endif
+endif
+
+TARGET_NAME := libSDL2_$(platform).a
+
+CP:= cp
+
+ifeq ($(platform), unix)
+	CC = gcc
+	CXX = g++
+	CFLAGS = -O2 -Iinclude -D_GNU_SOURCE=1 -Wall -D__LIBRETRO__ -DHAVE_POW -DHAVE_MMAP=0
+	CXXFLAGS = -g -O2  -fno-merge-constants 
+	TARGET := $(TARGET_NAME)
+	fpic := -fPIC
+#	SHARED := -shared -Wl,--no-undefined -Wl,--version-script=link.T
+	ENDIANNESS_DEFINES := -DLSB_FIRST
+	FLAGS += -D__LINUX__
+	EXTRA_LDF =  -fPIC -lm -lrt -lpthread  
+	SDL_PREFIX := lin
+# android arm
+else ifneq (,$(findstring android,$(platform)))
+   	TARGET := $(TARGET_NAME)
+   	fpic = -fPIC
+   	SHARED := -lstdc++ -llog -lz -shared -Wl,--version-script=link.T -Wl,--no-undefined
+	CFLAGS +=  -g -O2 
+   	CC = arm-linux-androideabi-gcc
+   	CXX = arm-linux-androideabi-g++
+# Wii U
+else ifeq ($(platform), wiiu)
+	TARGET := $(TARGET_NAME)
+	CC = $(DEVKITPPC)/bin/powerpc-eabi-gcc$(EXE_EXT)
+	CXX = $(DEVKITPPC)/bin/powerpc-eabi-g++$(EXE_EXT)
+	AR = $(DEVKITPPC)/bin/powerpc-eabi-ar$(EXE_EXT)
+	COMMONFLAGS += -DWIIU -mwup -mcpu=750 -meabi -mhard-float -D__POWERPC__ -D__ppc__ 
+	COMMONFLAGS += -U__INT32_TYPE__ -U __UINT32_TYPE__ -D__INT32_TYPE__=int -DMSB_FIRST -DWORDS_BIGENDIAN=1
+	COMMONFLAGS += -Iwiiu-deps
+	CFLAGS += $(COMMONFLAGS) -O2 -Iinclude -D_GNU_SOURCE=1 -Wall -D__LIBRETRO__ -DHAVE_POW -DHAVE_MMAP=0
+	CXXFLAGS += $(COMMONFLAGS) -g -O2  -fno-merge-constants
+	ENDIANNESS_DEFINES += -DMSB_FIRST
+	SDL_PREFIX := wiiu
+	EXTRA_INCLUDES := -Ideps
+	STATIC_LINKING = 1
+# cross Windows
+else ifeq ($(platform), wincross64)
+	TARGET := libSDL2_win64.a
+	AR = x86_64-w64-mingw32-ar
+	CC = x86_64-w64-mingw32-gcc-win32
+	CXX = x86_64-w64-mingw32-g++-win32
+	CFLAGS = -O2 -Iinclude -D_GNU_SOURCE=1 -Wall -D__LIBRETRO__ -DX86_64 -m64
+	ENDIANNESS_DEFINES := -DLSB_FIRST
+	FLAGS +=
+	EXTRA_LDF := -m64 -lmingw32 -lws2_32 -lwinmm -ole32 -mwindows -Wl,--export-all-symbols
+	SDL_PREFIX := win
+else ifeq ($(platform), wincross64ex)
+	TARGET := libSDL2_win64.a
+	AR = /vm/mingw64-w32/bin/ar.exe
+	CC = /vm/mingw64-w32/bin/x86_64-w64-mingw32-gcc.exe
+	CXX = /vm/mingw64-w32/bin/x86_64-w64-mingw32-g++.exe
+	CFLAGS = -O2 -Iinclude -D_GNU_SOURCE=1 -Wall -D__LIBRETRO__
+ 	CFLAGS+=-DX86_64 -m64
+	LDFLAGS+=-m64
+	LDFLAGS += -static-libgcc -static-libstdc++ 
+	ENDIANNESS_DEFINES := -DLSB_FIRST
+	FLAGS +=
+	EXTRA_LDF := -lwinmm -ole32 -Wl,--export-all-symbols
+	SDL_PREFIX := win
+else ifeq ($(platform), wincross32)
+	TARGET := libSDL2_win32.a
+	AR =  i686-w64-mingw32-ar
+	CC =  i686-w64-mingw32-gcc-win32
+	CXX =  i686-w64-mingw32-g++-win32
+	CFLAGS = -O2 -Iinclude -D_GNU_SOURCE=1 -Wall -D__LIBRETRO__ -DX86_32 -m32
+	ENDIANNESS_DEFINES := -DLSB_FIRST
+	FLAGS +=
+	EXTRA_LDF := -m32 -lmingw32 -lws2_32 -lwinmm -ole32 -mwindows -Wl,--export-all-symbols
+	SDL_PREFIX := win
+else
+   	TARGET :=  libSDL_win.a
+   	CC = gcc
+   	CXX = g++
+	CFLAGS = -O2 -Iinclude -D_GNU_SOURCE=1 -Wall -D__LIBRETRO__
+   	LDFLAGS += -static-libgcc -static-libstdc++ 
+   	ENDIANNESS_DEFINES := -DLSB_FIRST
+   	FLAGS +=
+	EXTRA_LDF = -lwinmm -Wl,--export-all-symbols
+	SDL_PREFIX := win
+endif
+
+
+SOURCES = \
+	src/*.c \
+	src/atomic/SDL_atomic.o \
+	src/atomic/SDL_spinlock.o \
+	src/audio/*.c \
+	src/audio/dummy_libretro/*.c \
+	src/cpuinfo/*.c \
+	src/events/*.c \
+	src/file/*.c \
+	src/haptic/*.c \
+	src/haptic/dummy/*.c \
+	src/joystick/*.c \
+	src/joystick/dummy_libretro/*.c \
+	src/loadso/dummy/*.c \
+	src/power/*.c \
+	src/filesystem/dummy/*.c \
+	src/render/*.c \
+	src/render/software/*.c \
+	src/stdlib/*.c \
+	src/thread/*.c \
+	src/timer/*.c \
+	src/video/*.c \
+	src/video/dummy_libretro/*.c 
+
+ifeq ($(SDL_PREFIX), win)
+SOURCES += \
+	src/timer/windows/*.c \
+	src/core/windows/SDL_windows.o \
+	src/thread/generic/SDL_systls.o \
+	src/thread/windows/SDL_syssem.o \
+	src/thread/windows/SDL_systhread.o \
+	src/thread/windows/SDL_sysmutex.o \
+	src/thread/generic/SDL_syscond.o 
+else ifeq ($(SDL_PREFIX), lin)
+SOURCES += \
+	src/timer/dummy_libretro/*.c \
+	src/thread/generic/SDL_systls.o \
+	src/thread/pthread/SDL_syssem.o \
+	src/thread/pthread/SDL_systhread.o \
+	src/thread/pthread/SDL_sysmutex.o \
+	src/thread/pthread/SDL_syscond.o 
+else ifeq ($(SDL_PREFIX), wiiu)
+SOURCES += \
+	src/timer/dummy_libretro/*.c \
+	src/thread/generic/SDL_systls.o \
+	src/thread/pthread/SDL_syssem.o \
+	src/thread/pthread/SDL_systhread.o \
+	src/thread/pthread/SDL_sysmutex.o \
+	src/thread/pthread/SDL_syscond.o 
+endif
+
+OBJECTS = $(shell echo $(SOURCES) | sed -e 's,\.c,\.o,g')
+
+ifeq ($(DEBUG), 0)
+#   FLAGS += -O3 -ffast-math -fomit-frame-pointer
+else
+   FLAGS += -O0 -g
+endif
+
+LDFLAGS +=  $(fpic) $(SHARED) $(EXTRA_LDF) 
+FLAGS += -I. -I.. -I./include
+
+WARNINGS :=  
+	
+FLAGS += -D__LIBRETRO__ $(ENDIANNESS_DEFINES) $(WARNINGS) $(fpic) 
+
+CXXFLAGS += $(FLAGS) -fpermissive
+CFLAGS += $(FLAGS) 
+
+$(TARGET): $(OBJECTS)
+	$(AR) rcs $@ $^ 
+	$(CP) $(TARGET) ./bin/libs/
+
+%.o: %.cpp
+	$(CXX) -c -o $@ $< $(CXXFLAGS)
+
+%.o: %.c
+	$(CC) -c -o $@ $< $(CFLAGS)
+
+clean:
+	rm -f $(TARGET) $(OBJECTS)
+
+.PHONY: clean
