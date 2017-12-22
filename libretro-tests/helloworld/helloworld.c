@@ -75,7 +75,7 @@ void exec_app(){
 /*                   SDL PART	:END						*/
 /********************************************************************************/
 
-
+#ifndef __LIBRETRO__
 int main( int argc, char* args[] ) {
     init_app();
     exec_app();
@@ -84,3 +84,4 @@ int main( int argc, char* args[] ) {
     SDL_Delay( 2000 );
     quit_app();
 }
+#endif
