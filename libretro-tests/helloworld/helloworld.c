@@ -11,6 +11,7 @@ uint32_t *videoBuffer;
 extern uint32_t *videoBuffer;
 #include <stdio.h>
 #include "SDL.h"
+#include "softmouse.h"
 
 extern char retro_system_conf[512];
 
@@ -22,8 +23,12 @@ SDL_Surface* screenSurface = NULL;
 
 SDL_Renderer *renderer=NULL;
 
+int quit=0;
+
 void quit_app(void)
 {
+	DBGfreemousecursor();
+
 	SDL_DestroyRenderer( renderer );
 	renderer = NULL;
 
@@ -57,17 +62,30 @@ void init_app(){
 
     /* Clear the rendering surface with the specified color */
     SDL_SetRenderDrawColor(renderer, 76, 175, 80, 0xFF);
+
+    DBGcreatmousecursor();
+
 }
 
 
 
 void exec_app(){
+
 	//Clear screen
 	SDL_RenderClear( renderer );
 
+	SDL_RenderPresent(renderer);
 
-	//Update the surface
-	SDL_UpdateWindowSurface( window );
+	SDL_Event event;
+
+	while (SDL_PollEvent(&event)) {
+		if( event.type == SDL_QUIT )
+        	{
+        	    quit = 1;
+        	}
+    	}
+
+        DBGshowmouse(1);
 
 }
 
@@ -77,11 +95,16 @@ void exec_app(){
 
 #ifndef __LIBRETRO__
 int main( int argc, char* args[] ) {
-    init_app();
-    exec_app();
 
-    //Wait two seconds
-    SDL_Delay( 2000 );
+    init_app();
+
+    while(!quit){
+
+	exec_app();
+	//?needed on native with software render
+	SDL_UpdateWindowSurface( window );
+    }
+
     quit_app();
 }
 #endif

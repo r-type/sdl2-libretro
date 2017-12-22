@@ -1,4 +1,4 @@
-OBJS = helloworld.c
+OBJS = helloworld.c softmouse.c
 OBJ_NAME = helloworld
 INCLUDES = -I../../include
 all : $(OBJS)

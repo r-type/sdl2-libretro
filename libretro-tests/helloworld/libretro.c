@@ -20,8 +20,6 @@ int retroh=480;
 
 int pauseg=0;
 
-signed short soundbuf[1024*2];
-
 uint32_t *videoBuffer;
 
 static retro_video_refresh_t video_cb;
@@ -37,16 +35,19 @@ void retro_set_audio_sample(retro_audio_sample_t cb) { audio_cb  =cb; }
 void retro_set_audio_sample_batch(retro_audio_sample_batch_t cb) { audio_batch_cb = cb; }
 void retro_set_input_poll(retro_input_poll_t cb) { input_poll_cb = cb; }
 void retro_set_input_state(retro_input_state_t cb) { input_state_cb = cb; }
-
+int sdlinitok=0;
 // these 2 funtions have to be implemented for Libretro SDL port
 #ifdef __cplusplus
 extern "C" {
 #endif
-void libretro_audio_cb(int16_t left, int16_t right){
+void libretro_audio_cb(int16_t left, int16_t right)
+{
+	if(sdlinitok==0)return;
 	audio_cb(left,right);
 }
 
 short int libretro_input_state_cb(unsigned port,unsigned device,unsigned index,unsigned id){
+	if(sdlinitok==0)return 0;
 	return input_state_cb(port,device,index,id);
 
 } 
@@ -307,7 +308,13 @@ void retro_reset(void)
 }
 
 void retro_run(void)
-{       
+{ 
+        static bool firstcall=true;
+	if(firstcall){
+		firstcall=false;
+		sdlinitok=1;
+	}      
+
 	update_input();
 
 	if(pauseg!=-1){

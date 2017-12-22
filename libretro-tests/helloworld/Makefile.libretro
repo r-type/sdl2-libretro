@@ -88,7 +88,7 @@ else
 endif
 
 #OBJ_SDL := $(wildcard ./obj/*.o)
-OBJECTS := libretro.o helloworld.o 
+OBJECTS := libretro.o helloworld.o softmouse.o
 #$(OBJ_SDL)
 
 all: $(TARGET)
