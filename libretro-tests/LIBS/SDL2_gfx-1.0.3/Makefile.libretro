@@ -1,0 +1,56 @@
+
+ifeq ($(platform),)
+platform = unix
+endif
+
+ifeq ($(platform), unix)
+CC = gcc
+AR=ar rc
+SDL_PREFIX := unix
+else ifeq ($(platform), wiiu)
+CC = $(DEVKITPPC)/bin/powerpc-eabi-gcc$(EXE_EXT)
+CXX = $(DEVKITPPC)/bin/powerpc-eabi-g++$(EXE_EXT)
+AR = $(DEVKITPPC)/bin/powerpc-eabi-ar$(EXE_EXT) rcs
+SDL_PREFIX := wiiu
+COMMONFLAGS += -DWIIU -mwup -mcpu=750 -meabi -mhard-float -D__POWERPC__ -D__ppc__ 
+COMMONFLAGS += -U__INT32_TYPE__ -U __UINT32_TYPE__ -D__INT32_TYPE__=int -DMSB_FIRST -DWORDS_BIGENDIAN=1
+COMMONFLAGS += -I../.. -I../../wiiu-deps
+CFLAGS += $(COMMONFLAGS) -O2  -Wall -D__LIBRETRO__
+CXXFLAGS += $(COMMONFLAGS) -g -O2  -fno-merge-constants
+ENDIANNESS_DEFINES += -DMSB_FIRST
+else ifeq ($(platform), wincross64)
+CC = x86_64-w64-mingw32-gcc
+AR = x86_64-w64-mingw32-ar rc
+SDL_PREFIX := win
+else ifeq ($(platform), wincross32)
+AR = i686-w64-mingw32-ar rc
+CC =  i686-w64-mingw32-gcc-win32
+CXX =  i686-w64-mingw32-g++-win32
+SDL_PREFIX := win
+endif
+
+RANLIB=ranlib
+
+CFLAGS += -O3  -I../../../include -fPIC
+LIBS = -fPIC
+
+OBJS = SDL2_framerate.o SDL2_gfxPrimitives.o SDL2_imageFilter.o SDL2_rotozoom.o 
+
+STATIC_LIB := libSDL_gfx_$(SDL_PREFIX).a
+
+all: $(STATIC_LIB)
+
+$(STATIC_LIB): $(OBJS)
+	$(AR) $@ $^
+	$(RANLIB) $@
+
+install: $(STATIC_LIB) 
+	cp $(STATIC_LIB)  ../../
+	cp SDL2_framerate.h SDL2_gfxPrimitives.h SDL2_imageFilter.h SDL_rotozoom.h ../../include
+
+uninstall:
+	rm -f  ../../$(STATIC_LIB)
+
+clean:
+	rm -f *.o *.a 
+

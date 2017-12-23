@@ -1,0 +1,8 @@
+OBJS = sdlapp.c softmouse.c
+OBJ_NAME = testsdl2gfx
+INCLUDES = -I../../bin/include/SDL2
+all : $(OBJS)
+	$(CC) $(OBJS) -DNATIVE -w -lSDL2 -lSDL2_gfx -o $(OBJ_NAME) $(INCLUDES)
+
+clean:
+	rm $(OBJ_NAME)
