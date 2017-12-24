@@ -1,0 +1,146 @@
+
+DEBUG = 0
+
+ifeq ($(platform),)
+platform = unix
+ifeq ($(shell uname -a),)
+   platform = win
+else ifneq ($(findstring Darwin,$(shell uname -a)),)
+   platform = osx
+else ifneq ($(findstring MINGW,$(shell uname -a)),)
+   platform = win
+endif
+endif
+
+TARGET_NAME := testsdlgfx
+
+ifeq ($(platform), unix)
+	CC = gcc
+	CXX = g++
+	CFLAGS = -g -O2 
+	CXXFLAGS = -g -O2  -fno-merge-constants 
+	TARGET := $(TARGET_NAME)_libretro.so
+	fpic := -fPIC
+	SHARED := -shared -Wl,--no-undefined -Wl,--version-script=link.T
+	ENDIANNESS_DEFINES := -DLSB_FIRST
+	FLAGS += -D__LINUX__
+	SDL_PREFIX := unix
+	SDL_LIBS:= ../../bin/libs/libSDL2_unix.a ../../bin/libs/libSDL2_gfx_unix.a
+	EXTRA_LDF = -lpthread -lm -ldl -lpng -ljpeg 
+# android arm
+else ifneq (,$(findstring android,$(platform)))
+   	TARGET := $(TARGET_NAME)_libretro_android.so
+   	fpic = -fPIC
+   	SHARED := -lstdc++ -llog -lz -shared -Wl,--version-script=link.T -Wl,--no-undefined
+	CFLAGS +=  -g -O2 
+   	CC = arm-linux-androideabi-gcc
+   	CXX = arm-linux-androideabi-g++
+else ifeq ($(platform), wiiu)
+	TARGET := $(TARGET_NAME)_libretro_$(platform).a
+	CC = $(DEVKITPPC)/bin/powerpc-eabi-gcc$(EXE_EXT)
+	CXX = $(DEVKITPPC)/bin/powerpc-eabi-g++$(EXE_EXT)
+	AR = $(DEVKITPPC)/bin/powerpc-eabi-ar$(EXE_EXT)
+	COMMONFLAGS += -DWIIU -mwup -mcpu=750 -meabi -mhard-float -D__POWERPC__ -D__ppc__ 
+	COMMONFLAGS += -U__INT32_TYPE__ -U __UINT32_TYPE__ -D__INT32_TYPE__=int -DMSB_FIRST -DWORDS_BIGENDIAN=1
+	COMMONFLAGS += -I../.. -I../../wiiu-deps
+	CFLAGS += $(COMMONFLAGS) -O2  -Wall -D__LIBRETRO__
+	CXXFLAGS += $(COMMONFLAGS) -g -O2  -fno-merge-constants
+	ENDIANNESS_DEFINES += -DMSB_FIRST
+	SDL_PREFIX := wiiu
+	EXTRA_INCLUDES := -Ideps
+	STATIC_LINKING = 1
+	EXTRA_LDF = 
+# cross Windows
+else ifeq ($(platform), wincross32)
+	TARGET := $(TARGET_NAME)_libretro.dll
+	AR = i686-w64-mingw32-ar rc
+	CC =  i686-w64-mingw32-gcc-win32
+	CXX =  i686-w64-mingw32-g++-win32
+	SHARED := -shared -Wl,--no-undefined -Wl,--version-script=link.T
+	LDFLAGS += -static-libgcc -static-libstdc++ 
+	ENDIANNESS_DEFINES := -DLSB_FIRST
+	FLAGS +=
+	EXTRA_LDF := -lwinmm -lm -lpng -ljpeg -Wl,--export-all-symbols
+	SDL_PREFIX := win
+	SDL_LIBS:= ../../bin/libs/libSDL2_win32.a
+else ifeq ($(platform), wincross64)
+	TARGET := $(TARGET_NAME)_libretro.dll
+	AR = x86_64-w64-mingw32-ar
+	CC = x86_64-w64-mingw32-gcc
+	CXX = x86_64-w64-mingw32-g++ 
+	SHARED := -shared -Wl,--no-undefined -Wl,--version-script=link.T
+	LDFLAGS += -static-libgcc -static-libstdc++ 
+	ENDIANNESS_DEFINES := -DLSB_FIRST
+	FLAGS +=
+	EXTRA_LDF := -lwinmm -lole32 -lm -lpng -ljpeg -Wl,--export-all-symbols
+	SDL_PREFIX := win
+	SDL_LIBS:= ../../bin/libs/libSDL2_win64.a
+else
+   	TARGET :=  $(TARGET_NAME)_retro.dll
+   	CC = gcc
+   	CXX = g++
+   	SHARED := -shared -Wl,--no-undefined -Wl,--version-script=link.T
+   	LDFLAGS += -static-libgcc -static-libstdc++ 
+   	ENDIANNESS_DEFINES := -DLSB_FIRST
+   	FLAGS +=
+	EXTRA_LDF = -lwinmm -Wl,--export-all-symbols
+	SDL_PREFIX := win
+endif
+
+cpp_sources = src/audio src/apu src/blip_buf src/common src/controller src/cpu src/input src/main src/md5   \
+  src/mapper src/mapper_0 src/mapper_1 src/mapper_2 src/mapper_3 src/mapper_4 src/mapper_5 src/mapper_7 \
+  src/mapper_9 src/mapper_10 src/mapper_11 src/mapper_13 src/mapper_28 src/mapper_71 src/mapper_232 \
+  src/ppu src/rom src/save_states src/sdl_backend src/timing
+# Use C99 for the handy designated initializers feature
+c_sources = src/tables
+
+cpp_objects = $(cpp_sources:=.o)
+c_objects   = $(c_sources:=.o)
+objects     = $(c_objects) $(cpp_objects)
+
+
+#OBJ_SDL := $(wildcard ./obj/*.o)
+OBJECTS := $(objects) libretro.o sdlapp.o softmouse.o
+#$(OBJ_SDL)
+
+all: $(TARGET)
+
+ifeq ($(DEBUG), 0)
+   FLAGS += -O3 -ffast-math -fomit-frame-pointer
+else
+   FLAGS += -O0 -g
+endif
+
+ifeq ($(platform), wiiu)
+OBJ_SDL := $(wildcard ./test/*.o)
+LDFLAGS +=  $(fpic) $(SHARED) $(EXTRA_LDF) 
+else
+LDFLAGS +=  $(fpic) $(SHARED) $(SDL_LIBS) -lpthread -lm  $(EXTRA_LDF) 
+endif
+
+FLAGS += -I. -I.. -I../../bin/include/SDL2 -Iinclude
+
+WARNINGS :=  
+	
+FLAGS += -D__LIBRETRO__ $(ENDIANNESS_DEFINES) $(WARNINGS) $(fpic) 
+
+CXXFLAGS += $(FLAGS) -fpermissive
+CFLAGS += $(FLAGS) -std=gnu99
+
+$(TARGET): $(OBJECTS)
+ifeq ($(STATIC_LINKING),1)
+	$(AR) rcs $@ $(OBJECTS) $(OBJ_SDL)
+else
+	$(CXX) -o $@ $^ $(LDFLAGS)
+endif
+
+%.o: %.cpp
+	$(CXX) -c -o $@ $< $(CXXFLAGS)
+
+%.o: %.c
+	$(CC) -c -o $@ $< $(CFLAGS)
+
+clean:
+	rm -f $(TARGET) $(OBJECTS)
+
+.PHONY: clean
