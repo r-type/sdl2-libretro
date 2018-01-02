@@ -50,6 +50,10 @@ void init_app(){
 
     if( window == NULL ) { printf( "Window could not be created! SDL_Error: %s\n", SDL_GetError() );exit(1); }
 
+    if (SDL_ShowCursor(SDL_DISABLE) < 0) {
+        printf( "Could not hide the mouse cursor. SDL_Error: %s\n", SDL_GetError() );
+    }
+
     screenSurface = SDL_GetWindowSurface( window );
 
     videoBuffer=(unsigned int *)screenSurface->pixels;
