@@ -1,0 +1,8 @@
+OBJS = test_audio.c
+OBJ_NAME = test_audio
+INCLUDES = -I../../include
+all : $(OBJS)
+	$(CC) $(OBJS) -w -lSDL2 -o $(OBJ_NAME) $(INCLUDES)
+
+clean:
+	rm $(OBJ_NAME)
